@@ -1,98 +1,123 @@
 /**
- * Main JS file for Casper behaviours
+ * Main JS file for GhostScroll behaviours
  */
 
-/* globals jQuery, document */
-(function ($, sr, undefined) {
-    "use strict";
+var $post = $('.post');
+var $first = $('.post.first'); 
+var $last = $('.post.last'); 
+var $fnav = $('.fixed-nav');
+var $postholder = $('.post-holder');
+var $postafter = $('.post-after');
+var $sitehead = $('#site-head');
 
-    var $document = $(document),
+/* Globals jQuery, document */
+(function ($) {
+	"use strict";
+	function srcTo (el) {
+		$('html, body').animate({
+			scrollTop: el.offset().top
+		}, 1000);
+	}
+	$(document).ready(function(){
+	 
+		$postholder.each(function (e) {
+			if(e % 2 != 0)
+				$(this).addClass("odd");
+		});
 
-        // debouncing function from John Hann
-        // http://unscriptable.com/index.php/2009/03/20/debouncing-javascript-methods/
-        debounce = function (func, threshold, execAsap) {
-            var timeout;
+		$postafter.each(function (e) {
+			var bg = $(this).parent().css('background-color')
+			$(this).css('border-top-color', bg);
 
-            return function debounced () {
-                var obj = this, args = arguments;
-                function delayed () {
-                    if (!execAsap) {
-                        func.apply(obj, args);
-                    }
-                    timeout = null;
-                }
+			if (e % 2 == 0) {
+				$(this).addClass("even");
+			}
+		});
+		
+		$('.btn.first').click( function () {
+			srcTo($first);
+		});
+		$('.btn.last').click( function () {
+			srcTo($last);
+		});
+		$('#header-arrow').click(function () {
+			srcTo($first);
+		});
 
-                if (timeout) {
-                    clearTimeout(timeout);
-                } else if (execAsap) {
-                    func.apply(obj, args);
-                }
+		$('.post-title').each(function () {
+			var t = $(this).text();
+			var index = $(this).parents('.post-holder').index();
+			$fnav.append("<a class='fn-item' item_index='"+index+"'>"+t+"</a>")
+			$(this).parents('article').attr('id',t.toLowerCase().split(' ').join('-'));
+			$('.fn-item').click(function () {
+				var i = $(this).attr('item_index');
+				var s = $(".post[item_index='"+i+"']");
 
-                timeout = setTimeout(delayed, threshold || 100);
-            };
-        };
+				$('html, body').animate({
+					scrollTop: s.offset().top
+				}, 400);
 
-    $document.ready(function () {
+			});
+		});
 
-        var $postContent = $(".post-content");
-        $postContent.fitVids();
+		$('.post.last').next('.post-after').hide();
+		if($sitehead.length) { 
+			$(window).scroll( function () {
+				var w = $(window).scrollTop();
+				var g = $sitehead.offset().top;
+				var h = $sitehead.offset().top + $sitehead.height()-100;
+				
+				var paralex = 30 + w/13 + "%";
+				$sitehead.css("background-position-y", paralex);
 
-        function updateImageWidth() {
-            var $this = $(this),
-                contentWidth = $postContent.outerWidth(), // Width of the content
-                imageWidth = this.naturalWidth; // Original image resolution
+				if(w >= g && w<=h) {
+					$('.fixed-nav').fadeOut('fast');
+				} else if($(window).width()>500) {
+					$('.fixed-nav').fadeIn('fast');
+				}
 
-            if (imageWidth >= contentWidth) {
-                $this.addClass('full-img');
-            } else {
-                $this.removeClass('full-img');
-            }
-        }
+				$post.each(function () {
+					var f = $(this).offset().top;
+					var b = $(this).offset().top + $(this).height();
+					var t = $(this).parent('.post-holder').index();
+					var i = $(".fn-item[item_index='"+t+"']");
+					var a = $(this).parent('.post-holder').prev('.post-holder').find('.post-after');
 
-        var $img = $("img").on('load', updateImageWidth);
-        function casperFullImg() {
-            $img.each(updateImageWidth);
-        }
+					$(this).attr('item_index', t);
 
-        casperFullImg();
-        $(window).smartresize(casperFullImg);
+					if(w >= f && w<=b) {
+						i.addClass('active');
+						a.fadeOut('slow');
+					} else {
+						i.removeClass('active');
+						a.fadeIn('slow');
+					}
+				});
+			});
+		}
 
-        $(".scroll-down").arctic_scroll();
+		$('ul li').before('<span class="bult fa fa-asterisk icon-asterisk"></span>');
+		$('blockquote p').prepend('<span class="quo icon-quote-left"></span>');
+		$('blockquote p').append('<span class="quo icon-quote-right"></span>');
+	});
+	
+	$post.each(function () {
+		var postText = $(this).html();
+		var fa  = [];
+		for(var i=0; i < icons.length; i++) {
+			fa[i]       = {};
+			fa[i].str   = "@"+ icons[i]+ "@";
+			fa[i].icon  = icons[i];
+			fa[i].int   = postText.search(fa[i].str);
 
-    });
+			if(fa[i].int > -1 ) { 
+				fa[i].count = postText.match(new RegExp(fa[i].str,"g")).length;
+				for(var j=0; j < fa[i].count; j++) {
+					$(this).html($(this).html().replace(fa[i].str, "<i class='fa "+fa[i].icon+"'></i>"))
+				}
+			}
+		}
+	});
+	
 
-    // smartresize
-    jQuery.fn[sr] = function(fn) { return fn ? this.bind('resize', debounce(fn)) : this.trigger(sr); };
-
-    // Arctic Scroll by Paul Adam Davis
-    // https://github.com/PaulAdamDavis/Arctic-Scroll
-    $.fn.arctic_scroll = function (options) {
-
-        var defaults = {
-            elem: $(this),
-            speed: 500
-        },
-
-        allOptions = $.extend(defaults, options);
-
-        allOptions.elem.click(function (event) {
-            event.preventDefault();
-            var $this = $(this),
-                $htmlBody = $('html, body'),
-                offset = ($this.attr('data-offset')) ? $this.attr('data-offset') : false,
-                position = ($this.attr('data-position')) ? $this.attr('data-position') : false,
-                toMove;
-
-            if (offset) {
-                toMove = parseInt(offset);
-                $htmlBody.stop(true, false).animate({scrollTop: ($(this.hash).offset().top + toMove) }, allOptions.speed);
-            } else if (position) {
-                toMove = parseInt(position);
-                $htmlBody.stop(true, false).animate({scrollTop: toMove }, allOptions.speed);
-            } else {
-                $htmlBody.stop(true, false).animate({scrollTop: ($(this.hash).offset().top) }, allOptions.speed);
-            }
-        });
-
-    };
-})(jQuery, 'smartresize');
+}(jQuery));
